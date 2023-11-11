@@ -61,8 +61,7 @@ class Ship:
         Returns:
             bool : True if the ship is vertical. False otherwise.
         """
-        # TODO: Complete this method
-        return False
+        return self.x_start == self.x_end
    
     def is_horizontal(self):
         """ Check whether the ship is horizontal.
@@ -70,8 +69,7 @@ class Ship:
         Returns:
             bool : True if the ship is horizontal. False otherwise.
         """
-        # TODO: Complete this method
-        return False
+        return self.y_start == self.y_end
     
     def get_cells(self):
         """ Get the set of all cell coordinates that the ship occupies.
@@ -84,8 +82,13 @@ class Ship:
         Returns:
             set[tuple] : Set of (x ,y) coordinates of all cells a ship occupies
         """
-        # TODO: Complete this method
-        return set()
+        if self.is_vertical():
+          y_coords = list(range(self.y_start, self.y_end + 1))
+          occupied_coords = [(self.x_start, y) for y in y_coords]
+        else:
+          x_coords = list(range(self.x_start, self.x_end + 1))
+          occupied_coords = [(x, self.y_start) for x in x_coords]        
+        return set(occupied_coords)
 
     def length(self):
         """ Get length of ship (the number of cells the ship occupies).
@@ -93,8 +96,15 @@ class Ship:
         Returns:
             int : The number of cells the ship occupies
         """
-        # TODO: Complete this method
-        return 0
+        x_coords = [item[0] for item in list(self.cells)]
+        y_coords = [item[1] for item in list(self.cells)]
+        x_domain = max(x_coords) - min(x_coords) + 1
+        y_domain = max(y_coords) - min(y_coords) + 1
+        length = max(x_domain, y_domain)
+        if length > 5:
+            return ValueError
+        else:
+            return length 
 
     def is_occupying_cell(self, cell):
         """ Check whether the ship is occupying a given cell
@@ -107,8 +117,7 @@ class Ship:
             bool : return True if the given cell is one of the cells occupied 
                 by the ship. Otherwise, return False
         """
-        # TODO: Complete this method
-        return False
+        return cell in self.cells
     
     def receive_damage(self, cell):
         """ Receive attack at given cell. 
@@ -126,8 +135,11 @@ class Ship:
             bool : return True if the ship is occupying cell (ship is hit). 
                 Return False otherwise.
         """
-        # TODO: Complete this method
-        return False
+        if cell in self.cells:
+            self.damaged_cells.add(cell)
+            return True
+        else:
+            return False
     
     def count_damaged_cells(self):
         """ Count the number of cells that have been damaged.
@@ -135,8 +147,7 @@ class Ship:
         Returns:
             int : the number of cells that are damaged.
         """
-        # TODO: Complete this method
-        return 0
+        return len(self.damaged_cells)
         
     def has_sunk(self):
         """ Check whether the ship has sunk.
@@ -145,8 +156,10 @@ class Ship:
             bool : return True if the ship is damaged at all its positions. 
                 Otherwise, return False
         """
-        # TODO: Complete this method
-        return False
+        if self.length() == self.count_damaged_cells():
+            return True
+        else:
+            return False
     
     def is_near_ship(self, other_ship):
         """ Check whether a ship is near another ship instance.
@@ -160,7 +173,9 @@ class Ship:
             bool : returns True if and only if the coordinate of other_ship is 
                 near to this ship. Returns False otherwise.
         """
-        # TODO: Complete this method
+        for other_ship_cell in other_ship.cells:
+            if self.is_near_cell(other_ship_cell):
+                return True
         return False
 
     def is_near_cell(self, cell):
@@ -239,16 +254,86 @@ class ShipFactory:
         given in self.ships_per_length.
         
         The ships must also not overlap with each other, and must also not be 
-        too close to one another (as defined earlier in Ship::is_near_ship())
+        too close to one another (as defined earlier in Ship::is_near_ship()).
+        This is done in the while() loop. If we have an impossible 
+        ships_per_length to satisfy, we try to fit as many ships on the grid 
+        as possible but will terminate at some point, hence the counter to 
+        limit the while loop from running indefinitely.
         
         The coordinates should also be valid given self.board_size
         
         Returns:
             list[Ships] : A list of Ship instances, adhering to the rules above
         """
-        # TODO: Complete this method
-        ships = []
+        ships = [] # Initialise list to collect Ship objects
+        
+        for ships_to_build in [item for item in self.ships_per_length.items()]:
+            ship_number = ships_to_build[1] # default is 1 per length
+            ship_length = ships_to_build[0]
+            for ship_to_build in range(0, ship_number): # build n ships per length
+                ship = self.build_ship(length = ship_length)
+                if len(ships) == 0: # if our list is empty, add the first ship
+                    ships.append(ship)
+                else:
+                    i = 1
+                    # Check if the ship is too close to our existing ships
+                    while i < 1000: 
+                        if any(ship.is_near_ship(other_ship) for other_ship in ships):
+                            ship = self.build_ship(length = ship_length)
+                        i += 1
+                    # If not, add it into the list of ships
+                    ships.append(ship)   
         return ships
+                        
+        
+        
+    def build_ship(self, length):
+        """ Build a ship of a given length.
+        
+        We begin by randomnly selecting a co-ordinate on the grid to build from.
+        Then we choose a direction to build in: horizontal or vertical.
+        Then we build out for the given length, ensuring we're within the grid
+        
+        Args:
+            length (int): how many cells the ship should occupy
+            existing_ships (list) : list of already created Ship instances 
+            
+        Returns:
+            Ship : a Ship instance created from start to end string coordinates
+        """
+        
+        converter = CellConverter(self.board_size)
+        
+        # Specify valid grid limits
+        min_valid_x = 1
+        min_valid_y = 1
+        max_valid_x = self.board_size[0]
+        max_valid_y = self.board_size[1]
+        
+        # Create random starting coords
+        x_start = random.randint(min_valid_x, max_valid_x)
+        y_start = random.randint(min_valid_y, max_valid_y)
+        cell_start = converter.to_str(tuple([x_start, y_start]))
+        
+        # Generate a random direction for the ship to build out from
+        rand_dir = random.random()
+        if rand_dir < 0.5: # note a *very* minor bias due to inequality
+            # We build horizontally
+            x_end = x_start + 1 - length # by default build left
+            if x_end < min_valid_x: # but build right if we go out of bounds
+                x_end = x_start - 1 + length
+            cell_end = converter.to_str(tuple([x_end, y_start]))
+            ship = ShipFactory.create_ship_from_str(cell_start, cell_end)
+        else:
+            # We build vertically
+            y_end = y_start -1 + length # by default build down
+            if y_end > max_valid_y:
+                y_end = y_start + 1 - length
+            cell_end = converter.to_str(tuple([x_start, y_end]))
+            ship = ShipFactory.create_ship_from_str(cell_start, cell_end)
+        
+        return ship     
+        
         
         
 if __name__ == '__main__':

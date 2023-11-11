@@ -96,8 +96,15 @@ class Board:
             bool : return True if all ships occupy valid cells on the board. 
                 Return False otherwise.
         """
-        # TODO: Complete this method
-        return False
+        all_ships_valid = list()
+        for ship in self.ships:
+            x_start_valid = ship.x_start >= 1
+            x_end_valid = ship.x_end <= self.width
+            y_start_valid = ship.y_start >= 1
+            y_end_valid = ship.y_end <= self.height
+            validity = all([x_start_valid, x_end_valid, y_start_valid, y_end_valid])
+            all_ships_valid.append(validity)
+        return all(all_ships_valid)
         
     def are_ships_too_close(self):
         """ Check whether there is at least a pair of ships that are too close.
@@ -107,8 +114,13 @@ class Board:
                 ships on the board that are near each other. Returns False 
                 otherwise
         """
-        # TODO: Complete this method
-        return False
+        ships_invalid = list()
+        for i in range(len(self.ships)):
+            ship_to_check = self.ships[i]
+            all_other_ships = [ship for ship in self.ships if ship != ship_to_check]
+            validity = any(ship_to_check.is_near_ship(other_ship) for other_ship in all_other_ships)
+            ships_invalid.append(validity)
+        return any(ships_invalid)
         
     def have_all_ships_sunk(self):
         """ Check whether all ships have sunk.
@@ -117,8 +129,10 @@ class Board:
             bool : return True if all ships on the board have sunk.
                return False otherwise.
         """
-        # TODO: Complete this method
-        return False
+        ships_sunk = list()
+        for ship in self.ships:
+            ships_sunk.append(ship.has_sunk())
+        return all(ships_sunk)
     
     def is_attacked_at(self, cell):
         """ Board is attacked at an (x, y) cell coordinate.
@@ -141,8 +155,19 @@ class Board:
         # Mark the cell that has been attacked for visualisation purposes
         self.marked_cells.add(cell)
         
-        # TODO: Complete this method
-        return False, False
+        # Initialise the return values
+        is_ship_hit = False
+        has_ship_sunk = False
+        
+        # Check if any ships are hit
+        for ship in self.ships:
+            if cell in ship.get_cells():
+                ship.receive_damage(cell)
+                is_ship_hit = True
+                if ship.has_sunk():
+                    has_ship_sunk = True
+        
+        return is_ship_hit, has_ship_sunk
         
     def print(self, show_ships=False):
         """ Visualise the board on the terminal.
