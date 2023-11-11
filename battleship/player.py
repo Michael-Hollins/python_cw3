@@ -167,6 +167,7 @@ class AutomaticPlayer(Player):
         # Initialise with a board with ships automatically arranged.
         super().__init__(board=Board(), name=name)
         
+        # Initialise a set of objects to keep a record of what has happened
         self.tracker = set()
         self.moves = list()
         self.attack_successful = False
@@ -183,6 +184,7 @@ class AutomaticPlayer(Player):
         return (x_min <= x <= x_max and y_min <= y <= y_max)
     
     def cell_unvisited(self, cell):
+        """ Returns True if the cell has not yet been attacked."""
         return cell not in self.tracker
     
     def get_random_coordinates(self):
@@ -213,6 +215,16 @@ class AutomaticPlayer(Player):
         return random_cell
     
     def all_surrounding_cells(self, cell):
+        """ For a given cell, return all of its neighbours, including diagonals.
+        
+        The list will remove any cells previously visited or outside grid range.
+        
+        Input:
+            cell (tuple[int, int]) : (x, y) cell coordinates 
+        Returns:
+            (list) : surrounding cells on grid and not yet visited
+        
+        """
         x = cell[1]
         y = cell[0]
         
@@ -236,14 +248,18 @@ class AutomaticPlayer(Player):
         return cells
     
     def receive_result(self, is_ship_hit, has_ship_sunk):
-        """ Receive results of latest attack.
+        """ Receive results of latest attack and updates player attributes.
         
         Player receives notification on the outcome of the latest attack by the 
         player, on whether the opponent's ship is hit, and whether it has been 
-        sunk. 
+        sunk.
         
-        Returns:
-            (bool) : True if ship is hit but not sunk
+        If hit, we get the previous move and add it to the list of cells 
+        where we've hit a particular ship.
+        
+        Once the ship has been sunk, we extract all the cells it occupied,
+        thereby excluding its surrounding cells from further future targetting, 
+        and reset the current ship_being_attacked list to empty.
         """
         # Log the successful move into the ship being attacked
         if is_ship_hit:
@@ -262,7 +278,14 @@ class AutomaticPlayer(Player):
             
         
     def get_adjacent_cells(self, cell):
-        """ Returns the surrounding cells of a given cell, if within bounds"""
+        """ Returns the adjacent cells of a given cell, if within bounds.
+        
+        This will be used for selecting possible next targets from a given cell.
+        We remove any cells that have already been visited or out of bounds.
+        
+        Returns:
+            (list) : list of tuples for potential next targets.
+        """
         x_min = 1
         y_min = 1
         x_max = self.board.width
@@ -298,16 +321,15 @@ class AutomaticPlayer(Player):
         return targets
     
     def select_target(self):
-        """ Generate a random cell that has previously not been attacked.
+        """ If we don't know anything, attack a random cell not yet attacked.
         
-        Also adds cell to the player's tracker.
+        Once we have a hit, attack surrounding cells to figure out the ship's
+        orientation. Then attack along that orientation until the ship is sunk.
         
         Returns:
             tuple[int, int] : (x, y) cell coordinates at which to launch the 
                 next attack
-        """
-        print(self.moves)
-        print(self.ship_being_attacked)
+        """        
         
         # If we have no ship yet being attacked, select a random cell
         if len(self.ship_being_attacked) == 0:
@@ -336,7 +358,7 @@ class AutomaticPlayer(Player):
             else:
                 orientation = 'horizontal'
         
-            # Attack the next square in that direction, unless the last attack failed
+            # Attack the next square in that direction
             if orientation == 'horizontal':
                 # Attack last registered hit to left if possible
                 potential_target =  tuple([self.ship_being_attacked[-1][0] - 1, self.ship_being_attacked[-1][1]])
