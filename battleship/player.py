@@ -178,8 +178,8 @@ class AutomaticPlayer(Player):
         y_min = 1
         x_max = self.board.width
         y_max = self.board.height        
-        x = cell[0]
-        y = cell[1]        
+        x = cell[1]
+        y = cell[0]        
         return (x_min <= x <= x_max and y_min <= y <= y_max)
     
     def cell_unvisited(self, cell):
@@ -213,17 +213,17 @@ class AutomaticPlayer(Player):
         return random_cell
     
     def all_surrounding_cells(self, cell):
-        x = cell[0]
-        y = cell[1]
+        x = cell[1]
+        y = cell[0]
         
-        top_left = tuple([x-1, y-1])
-        top_mid = tuple([x, y-1])
-        top_right = tuple([x+1, y-1])
-        left = tuple([x-1, y])
-        right = tuple([x+1, y])
-        bot_left = tuple([x-1, y+1])
-        bot_mid = tuple([x, y-1])
-        bot_right = tuple([x+1, y-1])
+        top_left = tuple([y-1,x-1])
+        top_mid = tuple([y-1,x])
+        top_right = tuple([y-1,x+1])
+        left = tuple([y,x-1])
+        right = tuple([y,x+1])
+        bot_left = tuple([y+1,x-1])
+        bot_mid = tuple([y+1,x])
+        bot_right = tuple([y+1,x+1])
         
         cells = [top_left, top_mid, top_right, left, right, bot_left, bot_mid, bot_right]
         
@@ -268,31 +268,33 @@ class AutomaticPlayer(Player):
         x_max = self.board.width
         y_max = self.board.height
         
-        x = cell[0]
-        y = cell[1]
+        x = cell[1]
+        y = cell[0]
         
         if x - 1 >= x_min:
-            left = tuple([x-1, y])
+            left = tuple([y, x - 1])
         else:
-            left = tuple([x, y])
+            left = tuple([y, x]) 
         
         if x + 1 <= x_max:
-            right = tuple([x+1, y])
+            down = tuple([y, x + 1])
         else:
-            right = tuple([x, y])
+            down = tuple([y, x])
         
         if y - 1 >= y_min:
-            up = tuple([x, y - 1])
+            up = tuple([y - 1, x])
         else:
-            up = tuple([x, y])
-            
+            up = tuple([y, x])
+
         if y + 1 <= y_max:
-            down = tuple([x, y + 1])
+            right = tuple([y + 1, x])
         else:
-            down = tuple([x, y])
+            right = tuple([y, x])
+
             
         potential_targets =  [left, right, up, down]
         targets = [cell for cell in potential_targets if self.cell_unvisited(cell)]
+        targets = [cell for cell in targets if self.is_valid_target(cell)]
         return targets
     
     def select_target(self):
@@ -304,10 +306,12 @@ class AutomaticPlayer(Player):
             tuple[int, int] : (x, y) cell coordinates at which to launch the 
                 next attack
         """
-
+        print(self.moves)
+        print(self.ship_being_attacked)
+        
         # If we have no ship yet being attacked, select a random cell
         if len(self.ship_being_attacked) == 0:
-            target_cell = self.get_random_coordinates()
+            target_cell = self.generate_random_target()
             self.tracker.add(target_cell)
             self.moves.append(target_cell)
             return target_cell
@@ -317,47 +321,78 @@ class AutomaticPlayer(Player):
         if len(self.ship_being_attacked) == 1:
             previous_successful_hit = self.ship_being_attacked[0]
             potential_targets = self.get_adjacent_cells(previous_successful_hit)
-            for cell in potential_targets:
-                if self.cell_unvisited(cell) and self.is_valid_target(cell):
-                    target_cell = cell
-                    self.tracker.add(target_cell)
-                    self.moves.append(target_cell)
-                    return target_cell
+            # Select a random cell to target
+            target_cell = random.choice(potential_targets)
+            self.tracker.add(target_cell)
+            self.moves.append(target_cell)
+            return target_cell
+        
         
         # If we've got successive attacks, figure out the orientation of the ship
         if len(self.ship_being_attacked) > 1:
             
             if self.ship_being_attacked[0][0] == self.ship_being_attacked[1][0]:
-                orientation = 'horizontal'
-            else:
                 orientation = 'vertical'
+            else:
+                orientation = 'horizontal'
         
             # Attack the next square in that direction, unless the last attack failed
-            if self.attack_successful == True:
-                if orientation == 'horizontal':
-                    potential_target =  tuple([self.ship_being_attacked[-1][0] - 1, self.ship_being_attacked[-1][1]])
-                    if self.cell_unvisited(potential_target) and self.is_valid_target(potential_target):
-                        target_cell = potential_target
-                        self.tracker.add(target_cell)
-                        self.moves.append(target_cell)
-                        return target_cell
-                    else:
-                        target_cell = tuple([self.ship_being_attacked[0][0] + 1, self.ship_being_attacked[0][1]])
-                        self.tracker.add(target_cell)
-                        self.moves.append(target_cell)
-                        return target_cell
-            else:
-                if orientation == 'horizontal':
-                    potential_target = tuple([self.ship_being_attacked[-1][0], self.ship_being_attacked[-1][1] - 1])
-                    if self.cell_unvisited(potential_target) and self.is_valid_target(potential_target):
-                        target_cell = potential_target
-                        self.tracker.add(target_cell)
-                        self.moves.append(target_cell)
-                        return target_cell
-                    else:
-                        target_cell = tuple([self.ship_being_attacked[0][0], self.ship_being_attacked[0][1] + 1])
-                        self.tracker.add(target_cell)
-                        self.moves.append(target_cell)
-                        return target_cell
+            if orientation == 'horizontal':
+                # Attack last registered hit to left if possible
+                potential_target =  tuple([self.ship_being_attacked[-1][0] - 1, self.ship_being_attacked[-1][1]])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                potential_target =  tuple([self.ship_being_attacked[-1][0] + 1, self.ship_being_attacked[-1][1]])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                # Otherwise, attack first registered target on this ship to the right
+                potential_target =  tuple([self.ship_being_attacked[0][0] + 1, self.ship_being_attacked[0][1]])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                else:
+                    potential_target =  tuple([self.ship_being_attacked[0][0] - 1, self.ship_being_attacked[0][1]])
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+            
+            if orientation == 'vertical':
+                # Attack the square above last successful attack, if possible
+                potential_target = tuple([self.ship_being_attacked[-1][0], self.ship_being_attacked[-1][1] - 1])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                # If we can't, attack the square below the last successful attack
+                potential_target = tuple([self.ship_being_attacked[-1][0], self.ship_being_attacked[-1][1] + 1])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                # Otherwise, go back to the first cell in the attack and repeat
+                potential_target = tuple([self.ship_being_attacked[0][0], self.ship_being_attacked[0][1] - 1])
+                if (self.cell_unvisited(potential_target) and self.is_valid_target(potential_target)):
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+                else:
+                    potential_target = tuple([self.ship_being_attacked[0][0], self.ship_being_attacked[0][1] + 1])
+                    target_cell = potential_target
+                    self.tracker.add(target_cell)
+                    self.moves.append(target_cell)
+                    return target_cell
+
         
             

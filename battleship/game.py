@@ -31,8 +31,7 @@ class Game:
         positions under attack...)
         """
         attacker, opponent = self.select_starting_player()
-        print(f"{attacker} starts the game.")
-        turns = 0    
+        print(f"{attacker} starts the game.")   
         # Simulates the game, until a player has lost
         while not self.player1.has_lost() and not self.player2.has_lost():
             self._print_turn_divider()
@@ -69,10 +68,8 @@ class Game:
 
             # Players swap roles
             attacker, opponent = opponent, attacker  
-            turns += 1
         # Show final results
         self._print_final_results()
-        print(turns)
         
     def select_starting_player(self):
         """ Selects a player to start at random. """
